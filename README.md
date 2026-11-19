@@ -91,3 +91,7 @@ js/glsl.js          общий GLSL (шум, чёрное тело)
 js/obstacles/       asteroid.js, blackhole.js, star.js, quasar.js
 vendor/three/       Three.js 0.170.0 (MIT)
 ```
+
+## Лицензия
+
+MIT — см. [LICENSE](LICENSE). Three.js в `vendor/three/` распространяется под собственной лицензией MIT.
