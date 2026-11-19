@@ -11,6 +11,7 @@ import { FX, shakeOffset } from './fx.js';
 import { GameAudio } from './audio.js';
 import { Explosion } from './explosion.js';
 import { Markers } from './markers.js';
+import { Q, IS_TOUCH, IS_MOBILE } from './quality.js';
 
 // ---------- Параметры отладки: ?debug=1 — FPS, ?t=24 — старт с указанного времени ----------
 const params = new URLSearchParams(location.search);
@@ -24,8 +25,15 @@ const T_LIGHT = CFG.T_LIGHT;
 
 // ---------- Рендерер и сцена ----------
 const canvas = document.getElementById('game');
+if (!canvas.getContext('webgl2')) {
+  const el = document.getElementById('err');
+  el.textContent = 'Браузер или устройство не поддерживает WebGL 2 — игра не может запуститься. Обновите браузер (Chrome, Safari 15+).';
+  el.style.display = 'block';
+  throw new Error('WebGL2 unsupported');
+}
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-let pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+let pixelRatio = Math.min(window.devicePixelRatio || 1, Q.prMax);
+if (IS_TOUCH) document.body.classList.add('touch');
 renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -40,14 +48,28 @@ scene.environmentIntensity = 0.35;
 const camera = new THREE.PerspectiveCamera(CFG.FOV[0], innerWidth / innerHeight, 0.1, 6000);
 camera.position.set(0, 2.3, CFG.CAM_Z);
 
+// Параметры камеры под форму экрана. В портретной ориентации (телефон вертикально)
+// отодвигаем камеру и расширяем обзор, чтобы весь коридор полёта оставался в кадре.
+const view = { camZ: CFG.CAM_Z, fov0: CFG.FOV[0], fov1: CFG.FOV[1] };
+function computeView() {
+  const a = innerWidth / innerHeight, need = 1.4;
+  if (a >= need) { view.camZ = CFG.CAM_Z; view.fov0 = CFG.FOV[0]; view.fov1 = CFG.FOV[1]; return; }
+  const k = need / a;
+  const zk = Math.min(2.2, 1 + (k - 1) * 0.6);
+  view.camZ = CFG.CAM_Z * zk;
+  const t = Math.tan(THREE.MathUtils.degToRad(CFG.FOV[0] / 2)) * k / zk;
+  view.fov0 = Math.min(100, THREE.MathUtils.radToDeg(2 * Math.atan(t)));
+  view.fov1 = Math.min(112, view.fov0 + 22);
+}
+
 scene.add(new THREE.AmbientLight(0x334466, 0.5));
 const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(5, 8, 6); scene.add(sun);
 const rim = new THREE.DirectionalLight(0x7a8cff, 1.6); rim.position.set(-6, 2, -10); scene.add(rim);
 const giantLight = new THREE.PointLight(0xffaa66, 0, 0, 0); scene.add(giantLight);
 
 const sky = new Sky(); scene.add(sky.mesh);
-const stars = new Starfield({ count: 5000, rMin: 30, rMax: 650, depth: 3000, near: 20, bright: 1.4 });
-const dust = new Starfield({ count: 700, rMin: 3, rMax: 45, depth: 400, near: 15, bright: 0.8, pointSize: 0.6 });
+const stars = new Starfield({ count: Q.stars, rMin: 30, rMax: 650, depth: 3000, near: 20, bright: 1.4 });
+const dust = new Starfield({ count: Q.dust, rMin: 3, rMax: 45, depth: 400, near: 15, bright: 0.8, pointSize: 0.6 });
 scene.add(stars.group, dust.group);
 const ship = new Ship(); scene.add(ship.group);
 const spawner = new Spawner(scene);
@@ -97,7 +119,7 @@ const S = {
   t: 0, sp: speedAt(0), visFrac: 0.1, warpVis: 0,
   dist: 0, score: 0, best: loadBest(), lightReached: false,
   flash: 0, flashColor: new THREE.Color(1, 1, 1), shakeT: 0,
-  death: null, deathT: 0, deathV: 0,
+  death: null, deathT: 0, deathV: 0, overAt: 0,
   banners: [],
 };
 $('menuBest').textContent = S.best;
@@ -139,6 +161,7 @@ function startGame() {
   S.dist = 0; S.score = 0;
   S.death = null;
   S.banners = BANNERS.filter((b) => b.t >= S.t).map((b) => ({ ...b }));
+  enterMobileMode();
   $('menu').classList.add('hidden');
   $('over').classList.add('hidden');
   $('paused').classList.add('hidden');
@@ -147,6 +170,8 @@ function startGame() {
 
 function gameOver() {
   S.mode = 'over';
+  S.overAt = S.time;
+  releaseWakeLock();
   resetFx();
   ship.group.visible = false;
   hud.warning.classList.remove('on');
@@ -204,24 +229,65 @@ function startSuck(obj, cause) {
   hud.warning.classList.remove('on');
 }
 
+function setPaused(p) {
+  if (S.mode !== 'play' || S.paused === p) return;
+  S.paused = p;
+  $('paused').classList.toggle('hidden', !p);
+  if (audio.ctx) p ? audio.ctx.suspend() : audio.ctx.resume();
+  p ? releaseWakeLock() : requestWakeLock();
+}
+function toggleMute() {
+  audio.setMuted(!audio.muted);
+  $('btnMute').classList.toggle('off', audio.muted);
+  popup(audio.muted ? 'ЗВУК ВЫКЛ' : 'ЗВУК ВКЛ');
+}
+
 input.onPress((code) => {
   audio.init();
   if (code === 'Space' || code === 'Enter') {
     if (S.mode === 'menu' || (S.mode === 'over')) startGame();
   } else if (code === 'KeyP' || code === 'Escape') {
-    if (S.mode === 'play') {
-      S.paused = !S.paused;
-      $('paused').classList.toggle('hidden', !S.paused);
-      if (audio.ctx) S.paused ? audio.ctx.suspend() : audio.ctx.resume();
-    }
+    setPaused(!S.paused);
   } else if (code === 'KeyM') {
-    audio.setMuted(!audio.muted);
-    popup(audio.muted ? 'ЗВУК ВЫКЛ' : 'ЗВУК ВКЛ');
+    toggleMute();
   }
 });
 
+// Касание/клик: старт, рестарт (с задержкой, чтобы не перезапустить случайно сразу после гибели), снятие паузы.
+// Звук на iOS разрешается только внутри жеста пользователя — инициализируем здесь.
+input.onTap(() => {
+  audio.init();
+  if (S.mode === 'menu') startGame();
+  else if (S.mode === 'over' && S.time - S.overAt > 0.9) startGame();
+  else if (S.paused) setPaused(false);
+});
+$('btnPause').addEventListener('click', (e) => { e.stopPropagation(); audio.init(); setPaused(!S.paused); });
+$('btnMute').addEventListener('click', (e) => { e.stopPropagation(); audio.init(); toggleMute(); });
+
+// Свернули вкладку / заблокировали телефон — пауза
+document.addEventListener('visibilitychange', () => { if (document.hidden) setPaused(true); });
+
+// ---------- Мобильные удобства: полноэкранный режим (Android), экран не гаснет ----------
+let wakeLock = null;
+async function requestWakeLock() {
+  try { if ('wakeLock' in navigator && !wakeLock) wakeLock = await navigator.wakeLock.request('screen'); wakeLock?.addEventListener('release', () => { wakeLock = null; }); } catch { wakeLock = null; }
+}
+function releaseWakeLock() { try { wakeLock?.release(); } catch { /* ignore */ } wakeLock = null; }
+function enterMobileMode() {
+  requestWakeLock();
+  const standalone = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone;
+  const el = document.documentElement;
+  if (IS_MOBILE && !standalone && !document.fullscreenElement && el.requestFullscreen) {
+    el.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+  }
+}
+// Потеря WebGL-контекста (бывает на телефонах при сворачивании) — перезагружаем страницу
+canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); setPaused(true); });
+canvas.addEventListener('webglcontextrestored', () => location.reload());
+
 // ---------- Камера ----------
 const camBase = new THREE.Vector3(0, 2.3, CFG.CAM_Z);
+const touchAnchor = new THREE.Vector2();
 const camLook = new THREE.Vector3();
 const shakeV = new THREE.Vector3();
 const projV = new THREE.Vector3();
@@ -282,7 +348,20 @@ function update(dt) {
   }, camera);
 
   if (mode === 'play') {
-    ship.update(dt, input.axisX(), input.axisY(), res.pull, sp.frac, sp.warp);
+    let ax = input.axisX(), ay = input.axisY();
+    const T = input.touch;
+    if (T.active) {
+      // Палец задаёт целевую точку: корабль повторяет смещение пальца от точки касания
+      if (T.fresh) { touchAnchor.set(sPos.x, sPos.y); T.fresh = false; }
+      const k = 32 / Math.min(innerWidth, innerHeight * 1.8); // единиц мира на пиксель
+      const B = CFG.BOUNDS;
+      const tx = touchAnchor.x + (T.x - T.sx) * k, ty = touchAnchor.y - (T.y - T.sy) * k;
+      const cx = clamp(tx, -B.x, B.x), cy = clamp(ty, -B.y, B.y);
+      touchAnchor.x += cx - tx; touchAnchor.y += cy - ty; // упёрлись в край — обратное движение сразу работает
+      ax = clamp((cx - sPos.x) * 0.6 - ship.vel.x * 0.05, -1, 1);
+      ay = clamp((cy - sPos.y) * 0.6 - ship.vel.y * 0.05, -1, 1);
+    }
+    ship.update(dt, ax, ay, res.pull, sp.frac, sp.warp);
     S.dist += sp.frac * sp.warp * 299792.458 * dt;
     S.score += dt * (10 + 90 * sp.frac) * sp.warp;
     for (const o of res.nearMiss) {
@@ -332,7 +411,7 @@ function update(dt) {
 
   // Камера и тряска
   if (S.mode !== 'dying' || S.death.kind !== 'suck') {
-    camBase.lerp(_v.set(sPos.x * 0.55, sPos.y * 0.55 + 2.3, CFG.CAM_Z), 1 - Math.exp(-10 * dt));
+    camBase.lerp(_v.set(sPos.x * 0.55, sPos.y * 0.55 + 2.3, view.camZ), 1 - Math.exp(-10 * dt));
   }
   let amp = 0;
   if (mode === 'play') {
@@ -349,7 +428,7 @@ function update(dt) {
     camera.lookAt(camLook);
     camera.rotateZ(-ship.vel.x * 0.004 + shakeV.x * 0.02);
   }
-  const fov = lerp(CFG.FOV[0], CFG.FOV[1], vf * vf) + Math.min(10, (sp.warp - 1) * 4) * S.warpVis;
+  const fov = Math.min(118, lerp(view.fov0, view.fov1, vf * vf) + Math.min(10, (sp.warp - 1) * 4) * S.warpVis);
   if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
 
   // Небо, звёзды, частицы
@@ -403,6 +482,7 @@ function updateHud(dt) {
 
 // ---------- Цикл, ресайз, авто-качество ----------
 function onResize() {
+  computeView();
   renderer.setSize(innerWidth, innerHeight);
   for (const f of [stars, dust]) f.setViewHeight(innerHeight * pixelRatio);
   camera.aspect = innerWidth / innerHeight;
@@ -414,6 +494,7 @@ addEventListener('resize', onResize);
 onResize();
 const fpsEl = $('fps');
 if (DEBUG) fpsEl.classList.remove('hidden');
+if (DEBUG) window.__game = { S, ship }; // для автотестов
 let fpsAcc = 0, fpsFrames = 0, warmup = 3;
 
 function trackFps(dt) {
@@ -421,9 +502,9 @@ function trackFps(dt) {
   warmup -= dt;
   if (fpsAcc >= 2) {
     const fps = fpsFrames / fpsAcc;
-    if (DEBUG) fpsEl.textContent = `${fps.toFixed(0)} fps · pr ${pixelRatio.toFixed(2)} · t ${S.t.toFixed(1)}`;
-    if (warmup <= 0 && fps < 45 && pixelRatio > 0.55) {
-      pixelRatio = Math.max(0.55, pixelRatio * 0.85);
+    if (DEBUG) fpsEl.textContent = `${fps.toFixed(0)} fps · ${Q.name} · pr ${pixelRatio.toFixed(2)} · t ${S.t.toFixed(1)}`;
+    if (warmup <= 0 && fps < 45 && pixelRatio > Q.prMin) {
+      pixelRatio = Math.max(Q.prMin, pixelRatio * 0.85);
       renderer.setPixelRatio(pixelRatio);
       onResize();
     }

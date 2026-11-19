@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { fbm3, rand, pick } from '../util.js';
+import { Q } from '../quality.js';
 
 // ---------- Процедурная геометрия астероидов ----------
 function makeRockGeo(seed, kind) {
-  const g = new THREE.IcosahedronGeometry(1, 4);
+  const g = new THREE.IcosahedronGeometry(1, Q.astDetail);
   const pos = g.attributes.position;
   const colors = new Float32Array(pos.count * 3);
   const v = new THREE.Vector3();

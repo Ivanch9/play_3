@@ -1,4 +1,5 @@
 // Общие GLSL-функции: simplex-шум (Ashima Arts, MIT), fbm, хэши, излучение чёрного тела.
+import { Q } from './quality.js';
 
 export const NOISE = /* glsl */ `
 vec3 mod289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
@@ -46,7 +47,7 @@ float snoise(vec3 v){
 }
 float fbm(vec3 p){
   float s=0.0, a=0.5;
-  for(int i=0;i<5;i++){ s+=a*snoise(p); p=p*2.02+vec3(1.7,9.2,3.1); a*=0.5; }
+  for(int i=0;i<${Q.fbmOct};i++){ s+=a*snoise(p); p=p*2.02+vec3(1.7,9.2,3.1); a*=0.5; }
   return s;
 }
 float fbm3(vec3 p){

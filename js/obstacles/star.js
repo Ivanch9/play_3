@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { NOISE, BLACKBODY } from '../glsl.js';
 import { CFG } from '../config.js';
 import { rand, pick, smoothstep } from '../util.js';
+import { Q } from '../quality.js';
 
 // Звезда: фотосфера с грануляцией, пятнами и потемнением к краю; корона с выбросами.
 const SURF_VERT = /* glsl */ `
@@ -67,7 +68,7 @@ export class Star {
       uTime: { value: 0 }, uTemp: { value: 5800 }, uI: { value: 3 }, uFade: { value: 1 }, uSeed: { value: 0 },
     };
     this.surf = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 96, 64),
+      new THREE.SphereGeometry(1, Q.starSeg[0], Q.starSeg[1]),
       new THREE.ShaderMaterial({ vertexShader: SURF_VERT, fragmentShader: SURF_FRAG, uniforms: this.uniforms }),
     );
     this.corUniforms = { ...this.uniforms, uRatio: { value: 0.4 } };

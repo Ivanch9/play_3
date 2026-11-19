@@ -2,6 +2,11 @@ import * as THREE from 'three';
 import { NOISE, HASH, BLACKBODY } from '../glsl.js';
 import { CFG } from '../config.js';
 import { rand, smoothstep } from '../util.js';
+import { Q } from '../quality.js';
+
+// Меньше шагов на слабых устройствах — шаг луча пропорционально крупнее
+const STEPS = Q.bhSteps;
+const STEP_K = Math.min(0.16, (0.085 * 150) / STEPS).toFixed(4);
 
 // Чёрная дыра Шварцшильда. Для каждого пикселя билборда трассируем луч света назад во времени
 // с изгибом траектории a = -3/2 · h² · r / |r|^5 (единицы r_s = 1), что даёт:
@@ -73,12 +78,12 @@ void main(){
   float alpha = 0.0;
   bool captured = false, escaped = false;
   float minR = 1e5;
-  for (int i = 0; i < 150; i++){
+  for (int i = 0; i < ${STEPS}; i++){
     float r = length(pos);
     minR = min(minR, r);
     if (r < 1.0){ captured = true; break; }
     if (r > uBound + 0.01 && dot(pos, vel) > 0.0){ escaped = true; break; }
-    float dt = clamp(0.085*r, 0.012, 0.9);
+    float dt = clamp(${STEP_K}*r, 0.012, 0.9);
     vec3 acc = -1.5*h2*pos/pow(r, 5.0);
     vel += acc*dt;
     vec3 np = pos + vel*dt;

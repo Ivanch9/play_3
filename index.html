@@ -2,11 +2,31 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Lightspeed">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <title>Lightspeed — космический раннер</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Russo+One&family=Exo+2:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <!-- Показываем ошибку на экране: на телефоне нет консоли разработчика -->
+  <script>
+    window.addEventListener('error', function (e) {
+      var el = document.getElementById('err');
+      if (!el) return;
+      el.textContent = 'Ошибка запуска: ' + (e.message || e.type) + '. Попробуйте обновить страницу или другой браузер.';
+      el.style.display = 'block';
+    }, true);
+  </script>
+  <!-- Полифил import maps для старых браузеров (iOS < 16.4); в новых ничего не делает -->
+  <script async src="vendor/es-module-shims.js"></script>
   <script type="importmap">
     { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
   </script>
@@ -32,16 +52,25 @@
     <div id="warning">⚠ ГРАВИТАЦИОННЫЙ ЗАХВАТ ⚠</div>
     <div id="banner"><div id="bannerTitle"></div><div id="bannerSub"></div></div>
     <div id="popups"></div>
+    <div id="buttons" class="only-touch">
+      <button id="btnPause" aria-label="Пауза">❚❚</button>
+      <button id="btnMute" aria-label="Звук">♪</button>
+    </div>
   </div>
 
   <div id="menu" class="screen">
     <h1>LIGHTSPEED</h1>
     <p class="tag">Разгонись до скорости света. Не коснись горизонта событий.</p>
-    <div class="controls">
+    <div class="controls only-kbd">
       <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> — манёвр</div>
       <div><kbd>P</kbd> — пауза &nbsp; <kbd>M</kbd> — звук</div>
     </div>
-    <p class="start">Нажми <kbd>ПРОБЕЛ</kbd> чтобы стартовать</p>
+    <div class="controls only-touch">
+      <div>Веди пальцем по экрану — корабль повторяет движение</div>
+      <div>Кнопки <b>❚❚</b> и <b>♪</b> вверху — пауза и звук</div>
+    </div>
+    <p class="start"><span class="only-kbd">Нажми <kbd>ПРОБЕЛ</kbd> чтобы стартовать</span><span class="only-touch">Коснись экрана, чтобы стартовать</span></p>
+    <p class="rotate-hint">↻ Удобнее играть, повернув телефон горизонтально</p>
     <p class="hint">Рекорд: <span id="menuBest">0</span></p>
   </div>
 
@@ -54,11 +83,12 @@
       <div><span class="label">ВРЕМЯ</span><span id="overTime">0</span></div>
     </div>
     <p id="newRecord" class="hidden">★ НОВЫЙ РЕКОРД ★</p>
-    <p class="start">Нажми <kbd>ПРОБЕЛ</kbd> чтобы лететь снова</p>
+    <p class="start"><span class="only-kbd">Нажми <kbd>ПРОБЕЛ</kbd> чтобы лететь снова</span><span class="only-touch">Коснись экрана, чтобы лететь снова</span></p>
   </div>
 
-  <div id="paused" class="screen hidden"><h2>ПАУЗА</h2><p class="start"><kbd>P</kbd> — продолжить</p></div>
+  <div id="paused" class="screen hidden"><h2>ПАУЗА</h2><p class="start"><span class="only-kbd"><kbd>P</kbd> — продолжить</span><span class="only-touch">Коснись экрана, чтобы продолжить</span></p></div>
   <div id="fps" class="hidden"></div>
+  <div id="err"></div>
 
   <script type="module" src="js/main.js"></script>
 </body>

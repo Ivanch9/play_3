@@ -4,6 +4,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { Q } from './quality.js';
 
 // Финальный проход: гравитационная линза/закрутка вокруг точки, радиальное размытие скорости,
 // хроматическая аберрация, красное смещение, виньетка, вспышки, затемнение при падении в дыру.
@@ -51,8 +52,8 @@ const FinalShader = {
       float blur = uBlur*smoothstep(0.04, 0.16, length(sd));
       vec3 col = vec3(0.0);
       float wsum = 0.0;
-      for (int i = 0; i < 10; i++){
-        float t = float(i)/9.0;
+      for (int i = 0; i < ${Q.blur}; i++){
+        float t = float(i)/${(Q.blur - 1).toFixed(1)};
         float w = 1.0 - t*0.6;
         vec2 p = uVanish + dir*(1.0 - blur*t);
         vec2 ab = (p - uVanish)*uAberr;
@@ -93,6 +94,8 @@ export class FX {
   setSize(w, h, pr) {
     this.composer.setPixelRatio(pr);
     this.composer.setSize(w, h);
+    // На телефонах bloom считаем в половинном разрешении — он размытый, разницы не видно
+    if (Q.bloomScale < 1) this.bloom.setSize(Math.round(w * pr * Q.bloomScale), Math.round(h * pr * Q.bloomScale));
     this.u.uAspect.value = w / h;
   }
 
