@@ -1,0 +1,33 @@
+# Секреты
+.env
+.env.*
+*.key
+*.pem
+*.p12
+credentials.json
+secrets.*
+config.local.*
+
+# Зависимости
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Сборка и кэш
+dist/
+build/
+.cache/
+*.log
+*.tmp
+
+# IDE и ОС
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Claude
+.claude/
+CLAUDE.local.md

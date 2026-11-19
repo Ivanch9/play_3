@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lightspeed — космический раннер</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Russo+One&family=Exo+2:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="hud" class="hidden">
+    <div class="panel tl">
+      <div class="label" id="speedLabel">СКОРОСТЬ</div>
+      <div class="value" id="speed">0% c</div>
+      <div class="bar"><div id="speedbar"></div></div>
+    </div>
+    <div class="panel tr">
+      <div class="label">ОЧКИ</div>
+      <div class="value" id="score">0</div>
+      <div class="label small">РЕКОРД <span id="best">0</span></div>
+    </div>
+    <div class="panel bl">
+      <div class="label">ПРОЙДЕНО</div>
+      <div class="value small" id="dist">0 км</div>
+    </div>
+    <div id="warning">⚠ ГРАВИТАЦИОННЫЙ ЗАХВАТ ⚠</div>
+    <div id="banner"><div id="bannerTitle"></div><div id="bannerSub"></div></div>
+    <div id="popups"></div>
+  </div>
+
+  <div id="menu" class="screen">
+    <h1>LIGHTSPEED</h1>
+    <p class="tag">Разгонись до скорости света. Не коснись горизонта событий.</p>
+    <div class="controls">
+      <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> — манёвр</div>
+      <div><kbd>P</kbd> — пауза &nbsp; <kbd>M</kbd> — звук</div>
+    </div>
+    <p class="start">Нажми <kbd>ПРОБЕЛ</kbd> чтобы стартовать</p>
+    <p class="hint">Рекорд: <span id="menuBest">0</span></p>
+  </div>
+
+  <div id="over" class="screen hidden">
+    <h2 id="overTitle">ИГРА ОКОНЧЕНА</h2>
+    <p id="overCause"></p>
+    <div class="stats">
+      <div><span class="label">ОЧКИ</span><span id="overScore">0</span></div>
+      <div><span class="label">ПРОЙДЕНО</span><span id="overDist">0</span></div>
+      <div><span class="label">ВРЕМЯ</span><span id="overTime">0</span></div>
+    </div>
+    <p id="newRecord" class="hidden">★ НОВЫЙ РЕКОРД ★</p>
+    <p class="start">Нажми <kbd>ПРОБЕЛ</kbd> чтобы лететь снова</p>
+  </div>
+
+  <div id="paused" class="screen hidden"><h2>ПАУЗА</h2><p class="start"><kbd>P</kbd> — продолжить</p></div>
+  <div id="fps" class="hidden"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
